@@ -5,6 +5,7 @@ import (
 	"fmt"
 	_ "github.com/lib/pq"
 	"io"
+	"os"
 )
 
 type InMemoryDatabase struct {
@@ -58,7 +59,16 @@ type PostgresDatabase struct {
 }
 
 func NewPostgresDatabase() *PostgresDatabase {
-	db, err := sql.Open("postgres", "postgres://postgres:default@localhost:5432/urls?sslmode=disable")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+
+	dataSourceName := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		dbHost, dbPort, dbUser, dbPassword, dbName)
+
+	db, err := sql.Open("postgres", dataSourceName)
 	if err != nil {
 		panic(err)
 	}

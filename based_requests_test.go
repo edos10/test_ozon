@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func testShortenUrlHandlerInMemory(t *testing.T) {
+func testShortUrlHandlerInMemory(t *testing.T) {
 	db := NewInMemoryDatabase()
 	defer db.Close()
 	str := "aaaaaaaaaa"
@@ -62,7 +62,7 @@ func testShortenUrlHandlerInMemory(t *testing.T) {
 	}
 }
 
-func testShortenUrlHandlerPostgres(t *testing.T) {
+func testShortUrlHandlerPostgres(t *testing.T) {
 	db := NewPostgresDatabase()
 	defer db.Close()
 

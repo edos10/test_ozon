@@ -27,8 +27,9 @@ func main() {
 
 	currentString := "aaaaaaaaaa"
 
-	storageType := os.Args[1]
-	if len(os.Args) != 2 {
+	storageType := os.Getenv("STORAGE")
+
+	if storageType == "" {
 		log.Fatal("Wrong input parameters, restart service please with parameter database - redis or postgres")
 	}
 
