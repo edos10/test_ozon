@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -20,30 +19,34 @@ func worker(wg *sync.WaitGroup, jobQueue <-chan *http.Request, handler http.Hand
 		handler.ServeHTTP(res, req)
 		log.Printf("Request: %s %s | Response: %d %s\n", req.Method, req.URL.Path, res.Code, res.Body.String())
 	}
-	wg.Done()hhhhhhhhhhhhhhh
+	wg.Done()
 }
 
 func main() {
 	makeMaps()
+
 	currentString := "aaaaaaaaaa"
-	fmt.Println(NextUrlString(currentString))
+
 	storageType := os.Args[1]
 	if len(os.Args) != 2 {
 		log.Fatal("Wrong input parameters, restart service please with parameter database - redis or postgres")
 	}
-	fmt.Println(storageType)
+
 	var db Database
+
 	switch storageType {
-	case "redis":
-		db = NewRedisDatabase()
+	case "in-memory":
+		db = NewInMemoryDatabase()
 	case "postgres":
 		db = NewPostgresDatabase()
 	default:
 		log.Fatal("Invalid storage type")
 	}
+
 	r := mux.NewRouter()
 	r.HandleFunc("/send", SendUrlHandler(db, &currentString)).Methods("POST")
 	r.HandleFunc("/get", GetUrlHandler(db)).Methods("GET")
+
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: r,
@@ -54,16 +57,22 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
 	defer cancel()
+
 	if err := db.Close(); err != nil {
 		log.Fatal(err)
 	}
+
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal(err)
 	}
+
 	log.Println("Server successfully stopped")
 }

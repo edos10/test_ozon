@@ -1,7 +1,12 @@
 package main
 
+import (
+	"fmt"
+)
+
 var numToLetter = make(map[int]byte)
 var letterToNum = make(map[byte]int)
+var arraySymb = make([]byte, 0)
 
 var startSmallLts = 97
 var endSmallLts = 122
@@ -10,7 +15,7 @@ var endBigLts = 90
 var startNums = 48
 var downcase = 95
 
-const sizeUrl = 10
+const sizeUrl, sizeAlphabet = 10, 63
 
 /*
 	 Порядок следования всех символов в map:
@@ -66,7 +71,7 @@ func NextUrlString(current string) string {
 		newUrl = append(newUrl, letterToNum[elem])
 	}
 	n := sizeUrl
-	k := 63
+	k := sizeAlphabet
 	i := n - 1
 	for i >= 0 {
 		if newUrl[i] < k-1 {
@@ -84,6 +89,37 @@ func NextUrlString(current string) string {
 	res := make([]byte, 0)
 	for _, elem := range newUrl {
 		res = append(res, numToLetter[elem])
+	}
+	return string(res)
+}
+
+func makeArraySym() {
+	startSym := byte('a')
+	for startSym <= 'z' {
+		arraySymb = append(arraySymb, startSym)
+		startSym++
+	}
+
+	startSym = byte('A')
+	for startSym <= 'Z' {
+		arraySymb = append(arraySymb, startSym)
+		startSym++
+	}
+
+	startSym = byte('0')
+	for startSym <= '9' {
+		arraySymb = append(arraySymb, startSym)
+		startSym++
+	}
+
+	arraySymb = append(arraySymb, '_')
+}
+
+func getRandomUrl() string {
+	res := make([]byte, 0)
+	fmt.Println(arraySymb)
+	for i := 0; i < 10; i++ {
+		res = append(res, arraySymb[2])
 	}
 	return string(res)
 }

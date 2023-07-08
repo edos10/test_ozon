@@ -1,63 +1,56 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
-	"github.com/redis/go-redis/v9"
 	"io"
 )
 
-type RedisDatabase struct {
-	client *redis.Client
-}
-
-func NewRedisDatabase() *RedisDatabase {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
-
-	return &RedisDatabase{
-		client: client,
-	}
-}
-
-func (db *RedisDatabase) Save(shortURL, originalURL string) error {
-	ctx := context.Background()
-	err := db.client.Set(ctx, shortURL, originalURL, 0).Err()
-	if err != nil {
-		return fmt.Errorf("failed to save URL: %w", err)
-	}
-	return nil
-}
-
-func (db *RedisDatabase) Get(shortURL string) (string, error) {
-	ctx := context.Background()
-	val, err := db.client.Get(ctx, shortURL).Result()
-	if err != nil {
-		if err == redis.Nil {
-			return "", fmt.Errorf("short URL not found")
-		}
-		return "", fmt.Errorf("failed to get URL: %w", err)
-	}
-	return val, nil
-}
-
-func (db *RedisDatabase) Close() error {
-	err := db.client.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close Redis client: %w", err)
-	}
-	return nil
+type InMemoryDatabase struct {
+	shortToOriginal map[string]string
 }
 
 type Database interface {
 	Save(shortURL, originalURL string) error
 	Get(shortURL string) (string, error)
 	io.Closer
+}
+
+func NewInMemoryDatabase() *InMemoryDatabase {
+	return &InMemoryDatabase{
+		shortToOriginal: make(map[string]string),
+	}
+}
+
+func (db *InMemoryDatabase) Save(shortURL, originalURL string) error {
+	for _, v := range db.shortToOriginal {
+		if v == originalURL {
+			return fmt.Errorf("Original URL already exists")
+		}
+	}
+
+	_, ok := db.shortToOriginal[shortURL]
+	if ok {
+		return fmt.Errorf("Short URL already exists")
+	}
+
+	db.shortToOriginal[shortURL] = originalURL
+
+	return nil
+}
+
+func (db *InMemoryDatabase) Get(shortURL string) (string, error) {
+	fmt.Println(shortURL, db.shortToOriginal)
+	originalURL, ok := db.shortToOriginal[shortURL]
+	if !ok {
+		return "", fmt.Errorf("Short URL not found")
+	}
+	return originalURL, nil
+}
+
+func (db *InMemoryDatabase) Close() error {
+	return nil
 }
 
 type PostgresDatabase struct {
@@ -75,6 +68,9 @@ func NewPostgresDatabase() *PostgresDatabase {
 }
 
 func (db *PostgresDatabase) Save(shortURL, originalURL string) error {
+	if _, err := db.db.Exec("SELECT * FROM urls WHERE 'original_url' = $1"); err != nil {
+		return fmt.Errorf("Original URL already exists!")
+	}
 	_, err := db.db.Exec("INSERT INTO urls (short_url, original_url) VALUES ($1, $2)", shortURL, originalURL)
 	return err
 }

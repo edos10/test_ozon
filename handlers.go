@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 )
 
 type SendRequest struct {
@@ -26,16 +28,27 @@ func SendUrlHandler(db Database, currentURL *string) http.HandlerFunc {
 		decoder := json.NewDecoder(r.Body)
 		var req SendRequest
 		err := decoder.Decode(&req)
+
 		if err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
 		shortURL := NextUrlString(*currentURL)
+
+		// обрезаем справа от ссылки /, чтобы например youtube.com и youtube.com/ были одинаковы
+
+		req.URL = strings.TrimRight(req.URL, "/")
 		err = db.Save(shortURL, req.URL)
-		if err != nil {
-			http.Error(w, "Failed to save URL", http.StatusInternalServerError)
+		if len(req.URL) == 0 {
+			http.Error(w, "Failed to parse link or error in json", http.StatusBadRequest)
 			return
 		}
+		if err != nil {
+			errStr := fmt.Sprintf("Failed to save URL: %s", err)
+			http.Error(w, errStr, http.StatusInternalServerError)
+			return
+		}
+
 		*currentURL = shortURL
 		resp := SendResponse{
 			ShortURL: shortURL,
@@ -51,13 +64,14 @@ func GetUrlHandler(db Database) http.HandlerFunc {
 		decoder := json.NewDecoder(r.Body)
 		var req GetRequest
 		err := decoder.Decode(&req)
+
 		if err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
 
-		// Получение оригинальной ссылки из базы данных
 		originalURL, err := db.Get(req.ShortURL)
+
 		if err != nil {
 			http.Error(w, "Short URL not found", http.StatusNotFound)
 			return
