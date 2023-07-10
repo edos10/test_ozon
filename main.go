@@ -20,12 +20,11 @@ func InitializeCurrentString(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(exists)
+
 	if !exists {
 		if err := createTableForString(db); err != nil {
 			return err
 		}
-		log.Printf("ok")
 		value := "aaaaaaaaaa"
 		_, err := db.Exec("INSERT INTO genstring (currentstring) VALUES ($1)", value)
 		if err != nil {
@@ -107,6 +106,8 @@ func createTableForUrls(db *sql.DB) error {
 	return nil
 }
 
+// как вариант, можно в main запускать порядка 10-20 горутин
+
 func worker(wg *sync.WaitGroup, jobQueue <-chan *http.Request, handler http.Handler) {
 	for req := range jobQueue {
 		res := httptest.NewRecorder()
@@ -116,38 +117,32 @@ func worker(wg *sync.WaitGroup, jobQueue <-chan *http.Request, handler http.Hand
 	wg.Done()
 }
 
+func InitDbForLocal() {
+	_ = os.Setenv("DB_HOST", "localhost")
+	_ = os.Setenv("DB_PORT", "5432")
+	_ = os.Setenv("DB_USER", "postgres")
+	_ = os.Setenv("DB_PASSWORD", "default")
+	_ = os.Setenv("DB_NAME", "urls")
+}
+
 func main() {
-	err := os.Setenv("DB_HOST", "localhost")
-	err = os.Setenv("DB_PORT", "5432")
-	err = os.Setenv("DB_USER", "postgres")
-	err = os.Setenv("DB_PASSWORD", "default")
-	err = os.Setenv("DB_NAME", "urls")
-	err = os.Setenv("STORAGE", "postgres")
+	// инициализируем мапы для работы
 	makeMaps()
 
+	// InitDbForLocal()
+	if len(os.Args) < 2 {
+		log.Println("Start program without args, using getenv variables")
+	} else if len(os.Args) == 2 {
+		log.Println("Start program with argument storage")
+		_ = os.Setenv("STORAGE", os.Args[1])
+	} else {
+		log.Fatalf("Error in cmd line, restart program with right arguments, please.")
+	}
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
 	dbName := os.Getenv("DB_NAME")
-
-	dataSourceName := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		dbHost, dbPort, dbUser, dbPassword, dbName)
-
-	dbForInit, err := sql.Open("postgres", dataSourceName)
-	if err != nil {
-		panic(err)
-	}
-
-	errorInitForString := InitializeCurrentString(dbForInit)
-	if errorInitForString != nil {
-		panic(errorInitForString)
-	}
-
-	errorInitForDataUrls := InitializeForUrls(dbForInit)
-	if errorInitForDataUrls != nil {
-		panic(errorInitForDataUrls)
-	}
 
 	storageType := os.Getenv("STORAGE")
 
@@ -157,11 +152,24 @@ func main() {
 
 	var db Database
 
+	log.Printf("Service storage is %s", storageType)
 	switch storageType {
 	case "in-memory":
 		db = NewInMemoryDatabase()
 	case "postgres":
 		db = NewPostgresDatabase()
+		dataSourceName := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			dbHost, dbPort, dbUser, dbPassword, dbName)
+
+		dbForInit, err := sql.Open("postgres", dataSourceName)
+		if err != nil {
+			panic(err)
+		}
+
+		if err := InitializeForUrls(dbForInit); err != nil {
+			panic(err)
+		}
+
 	default:
 		log.Fatal("Invalid storage type")
 	}
@@ -201,5 +209,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println("Server successfully stopped")
+	log.Println("Service successfully stopped")
 }

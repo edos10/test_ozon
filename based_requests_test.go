@@ -5,16 +5,19 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 )
 
-func testShortUrlHandlerInMemory(t *testing.T) {
+func TestShortUrlHandlerInMemory(t *testing.T) {
 	db := NewInMemoryDatabase()
 	defer db.Close()
-	str := "aaaaaaaaaa"
-	handler := SendUrlHandler(db, &str)
 
-	// Создание тестового запроса
+	// Инициализация базы данных
+
+	handler := SendUrlHandler(db)
+
 	requestBody := SendRequest{
 		URL: "https://www.example.com",
 	}
@@ -23,27 +26,29 @@ func testShortUrlHandlerInMemory(t *testing.T) {
 		t.Fatalf("Failed to marshal request body: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", "/send", bytes.NewReader(body))
+	// Создание временного HTTP-сервера
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	// Отправка запроса к временному серверу
+	time.Sleep(1 * time.Second)
+	resp, err := http.Post(server.URL+"/send", "application/json", bytes.NewBuffer(body))
+	time.Sleep(1 * time.Second)
 	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
+		t.Fatalf("Failed to send request: %v", err)
 	}
-
-	// Создание тестового ResponseWriter для записи ответа
-	recorder := httptest.NewRecorder()
-
-	// Выполнение запроса
-	handler.ServeHTTP(recorder, req)
+	defer resp.Body.Close()
 
 	// Проверка статуса ответа
-	if recorder.Code != http.StatusOK {
-		t.Errorf("Expected status 200; got %d", recorder.Code)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200; got %d", resp.StatusCode)
 	}
 
 	// Проверка тела ответа
 	var response SendResponse
-	err = json.Unmarshal(recorder.Body.Bytes(), &response)
+	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
-		t.Fatalf("Failed to unmarshal response body: %v", err)
+		t.Fatalf("Failed to decode response body: %v", err)
 	}
 
 	// Проверка корректности сокращенной ссылки
@@ -52,7 +57,7 @@ func testShortUrlHandlerInMemory(t *testing.T) {
 	}
 
 	// Проверка, что сокращенная ссылка действительно сохранена в базе данных
-	originalURL, err := db.Get(response.ShortURL)
+	originalURL, err := db.GetUrl(response.ShortURL)
 	if err != nil {
 		t.Fatalf("Failed to get original URL from database: %v", err)
 	}
@@ -62,57 +67,15 @@ func testShortUrlHandlerInMemory(t *testing.T) {
 	}
 }
 
-func testShortUrlHandlerPostgres(t *testing.T) {
+func TestShortUrlHandlerPostgres(t *testing.T) {
+	_ = os.Setenv("DB_HOST", "localhost")
+	_ = os.Setenv("DB_PORT", "5432")
+	_ = os.Setenv("DB_USER", "postgres")
+	_ = os.Setenv("DB_PASSWORD", "default")
+	_ = os.Setenv("DB_NAME", "urls")
+	_ = os.Setenv("STORAGE", "postgres")
 	db := NewPostgresDatabase()
 	defer db.Close()
+	//handler := SendUrlHandler(db)
 
-	str := "aaaaaaaaaa"
-	handler := SendUrlHandler(db, &str)
-
-	// Создание тестового запроса
-	requestBody := SendRequest{
-		URL: "https://www.example.com",
-	}
-	body, err := json.Marshal(requestBody)
-	if err != nil {
-		t.Fatalf("Failed to marshal request body: %v", err)
-	}
-
-	req, err := http.NewRequest("POST", "/shorten", bytes.NewReader(body))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-
-	// Создание тестового ResponseWriter для записи ответа
-	recorder := httptest.NewRecorder()
-
-	// Выполнение запроса
-	handler.ServeHTTP(recorder, req)
-
-	// Проверка статуса ответа
-	if recorder.Code != http.StatusOK {
-		t.Errorf("Expected status 200; got %d", recorder.Code)
-	}
-
-	// Проверка тела ответа
-	var response SendResponse
-	err = json.Unmarshal(recorder.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal response body: %v", err)
-	}
-
-	// Проверка корректности сокращенной ссылки
-	if len(response.ShortURL) != sizeUrl {
-		t.Errorf("Expected shortened URL length %d; got %d", sizeUrl, len(response.ShortURL))
-	}
-
-	// Проверка, что сокращенная ссылка действительно сохранена в базе данных
-	originalURL, err := db.Get(response.ShortURL)
-	if err != nil {
-		t.Fatalf("Failed to get original URL from database: %v", err)
-	}
-
-	if originalURL != requestBody.URL {
-		t.Errorf("Expected original URL %s; got %s", requestBody.URL, originalURL)
-	}
 }

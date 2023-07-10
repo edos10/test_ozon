@@ -152,14 +152,13 @@ func (db *PostgresDatabase) GetCurrentString() string {
 	var currentString string
 	err := db.db.QueryRow("SELECT genstring FROM genstring LIMIT 1").Scan(&currentString)
 	if err != nil {
-		return fmt.Sprintf("failed to get current string: %w", err)
+		return fmt.Sprintf("failed to get current string: %s", err)
 	}
 	return currentString
 }
 
 func (db *PostgresDatabase) SaveCurrentString(currentString string) error {
-	log.Printf(currentString)
-	_, err := db.db.Exec("UPDATE genstring SET genstring = $1", currentString)
+	_, err := db.db.Exec("UPDATE genstring SET currentstring = $1", currentString)
 	if err != nil {
 		return fmt.Errorf("failed to update current string: %w", err)
 	}
