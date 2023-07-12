@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +12,9 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/edos10/test_ozon/greetings"
+	"github.com/gorilla/mux"
 )
 
 func InitializeCurrentString(db *sql.DB) error {
@@ -128,7 +130,8 @@ func InitDbForLocal() {
 func main() {
 	// инициализируем мапы для работы
 	makeMaps()
-
+	log.Println("HER")
+	log.Println(greetings.Hello("Ed"))
 	// InitDbForLocal()
 	if len(os.Args) == 2 {
 		log.Println("Start program with argument storage")
@@ -150,7 +153,6 @@ func main() {
 	}
 
 	var db Database
-
 	log.Printf("Service storage is %s", storageType)
 	switch storageType {
 	case "in-memory":
