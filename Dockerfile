@@ -7,7 +7,7 @@ COPY main.go .
 COPY handlers.go .
 COPY database.go .
 COPY make.go .
-COPY set_environment.sh .
+
 
 # Сборка приложения
 RUN go build -o app
@@ -18,7 +18,7 @@ ENV PORT=8080
 # Установка переменной окружения для указания типа хранилища
 ENV STORAGE=postgres
 
-# Установка переменной окружения для указания адреса Redis или Postgres
+# Установка переменной окружения для указания адреса in-memory или Postgres
 ENV DB_ADDRESS=localhost
 
 # Установка переменной окружения для указания пароля Postgres

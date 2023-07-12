@@ -1,9 +1,9 @@
 #!/bin/sh
 
 if [ "$STORAGE" = "in-memory" ]; then
-    ./app -storage=in-memory -db-address=$DB_ADDRESS
+    ./app in-memory
 elif [ "$STORAGE" = "postgres" ]; then
-    ./app -storage=postgres -db-address=$DB_ADDRESS -db-password=$DB_PASSWORD -db-name=$DB_NAME
+    ./app postgres
 else
     echo "Invalid storage type specified"
 fi

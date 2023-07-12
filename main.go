@@ -130,13 +130,12 @@ func main() {
 	makeMaps()
 
 	// InitDbForLocal()
-	if len(os.Args) < 2 {
-		log.Println("Start program without args, using getenv variables")
-	} else if len(os.Args) == 2 {
+	if len(os.Args) == 2 {
 		log.Println("Start program with argument storage")
 		_ = os.Setenv("STORAGE", os.Args[1])
 	} else {
 		log.Fatalf("Error in cmd line, restart program with right arguments, please.")
+		return
 	}
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")

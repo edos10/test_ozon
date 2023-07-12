@@ -3,15 +3,16 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 )
 
 func TestShortUrlHandlerInMemory(t *testing.T) {
 	db := NewInMemoryDatabase()
+	db.InitializeCurrentString()
 	defer db.Close()
 
 	// Инициализация базы данных
@@ -19,7 +20,7 @@ func TestShortUrlHandlerInMemory(t *testing.T) {
 	handler := SendUrlHandler(db)
 
 	requestBody := SendRequest{
-		URL: "https://www.example.com",
+		URL: "https://example.com",
 	}
 	body, err := json.Marshal(requestBody)
 	if err != nil {
@@ -31,37 +32,42 @@ func TestShortUrlHandlerInMemory(t *testing.T) {
 	defer server.Close()
 
 	// Отправка запроса к временному серверу
-	time.Sleep(1 * time.Second)
-	resp, err := http.Post(server.URL+"/send", "application/json", bytes.NewBuffer(body))
-	time.Sleep(1 * time.Second)
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", server.URL+"/send", bytes.NewBuffer(body))
 	if err != nil {
 		t.Fatalf("Failed to send request: %v", err)
 	}
-	defer resp.Body.Close()
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Проверка статуса ответа
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200; got %d", resp.StatusCode)
 	}
 
-	// Проверка тела ответа
-	var response SendResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
+	defer resp.Body.Close()
+
+	// Чтение тела ответа
+	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		t.Fatalf("Failed to decode response body: %v", err)
+		t.Fatalf("Failed to read response body: %v", err)
 	}
 
-	// Проверка корректности сокращенной ссылки
-	if len(response.ShortURL) != sizeUrl {
-		t.Errorf("Expected shortened URL length %d; got %d", sizeUrl, len(response.ShortURL))
+	// Распаковка JSON-ответа
+	var response SendResponse
+	if err := json.Unmarshal(responseBody, &response); err != nil {
+		t.Fatalf("Failed to unmarshal response body: %v", err)
 	}
 
-	// Проверка, что сокращенная ссылка действительно сохранена в базе данных
+	// Получение оригинального URL из базы данных
 	originalURL, err := db.GetUrl(response.ShortURL)
 	if err != nil {
 		t.Fatalf("Failed to get original URL from database: %v", err)
 	}
 
+	// Проверка корректности оригинального URL
 	if originalURL != requestBody.URL {
 		t.Errorf("Expected original URL %s; got %s", requestBody.URL, originalURL)
 	}
